@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GodSaveThePhysics | Laboratorio MRU</title>
+<style>
+:root{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#e8eefb;background:#0b1220}*{box-sizing:border-box}body{margin:0;padding:24px}main{max-width:1250px;margin:auto}h1{font-size:clamp(1.5rem,3vw,2.3rem);margin:0}h2{font-size:1.12rem;margin:0 0 15px}.sub{color:#9eafc9;margin:8px 0 24px}.layout{display:grid;grid-template-columns:315px 1fr;gap:16px}.panel{background:#152238;border:1px solid #293a54;border-radius:16px;padding:20px;margin-bottom:16px}.control{margin-bottom:18px}.control label{display:flex;justify-content:space-between;gap:8px;margin-bottom:7px;font-size:.91rem}.control output{font-variant-numeric:tabular-nums;font-weight:700}input[type=range]{width:100%;accent-color:#5cb6ff}.a{color:#65c2ff}.b{color:#ffb45f}.btns{display:flex;gap:8px;flex-wrap:wrap}button{border:1px solid #476080;background:#253b58;color:#fff;padding:10px 15px;border-radius:9px;cursor:pointer;font-weight:650}button.primary{background:#287bcb;border-color:#287bcb}button:hover{filter:brightness(1.17)}button:focus-visible,input:focus-visible{outline:2px solid #fff;outline-offset:3px}.stats{display:flex;flex-wrap:wrap;gap:12px;margin:14px 0;color:#c8d8ee}.stats strong{color:#fff}.track{width:100%;height:148px;display:block;background:#101b2d;border-radius:10px}.plots{display:grid;grid-template-columns:1fr 1fr;gap:14px}.plot{width:100%;height:auto;display:block;background:#101b2d;border-radius:10px}.note{color:#b8c9e0;font-size:.9rem;line-height:1.5}.status{font-size:1.05rem;font-weight:650;margin:0}.legend{display:flex;gap:18px;color:#c7d8ef;font-size:.9rem}.legend span:before{content:"";display:inline-block;width:11px;height:11px;border-radius:50%;background:var(--c);margin-right:7px}.foot{font-size:.8rem;color:#92a8c5} @media(max-width:850px){body{padding:12px}.layout{grid-template-columns:1fr}.plots{grid-template-columns:1fr}.panel{padding:14px}}
+</style>
+</head>
+<body><main>
+<h1>GodSaveThePhysics <span style="color:#65c2ff">/ Laboratorio MRU</span></h1>
+<p class="sub">Esplora il moto rettilineo uniforme: x(t) = x₀ + vt</p>
+<div class="layout"><aside class="panel"><h2>Parametri del moto</h2>
+<div class="control"><label for="xA" class="a">Corpo A · posizione iniziale <output id="xAo"></output></label><input id="xA" type="range" min="-100" max="100" step="5" value="-60"></div>
+<div class="control"><label for="vA" class="a">Corpo A · velocità <output id="vAo"></output></label><input id="vA" type="range" min="-20" max="20" step="1" value="8"></div>
+<div class="control"><label for="xB" class="b">Corpo B · posizione iniziale <output id="xBo"></output></label><input id="xB" type="range" min="-100" max="100" step="5" value="60"></div>
+<div class="control"><label for="vB" class="b">Corpo B · velocità <output id="vBo"></output></label><input id="vB" type="range" min="-20" max="20" step="1" value="-4"></div>
+<div class="control"><label for="duration">Durata dell'esperimento <output id="durationo"></output></label><input id="duration" type="range" min="5" max="60" step="5" value="20"></div>
+<div class="control"><label for="speed">Velocità di riproduzione <output id="speedo"></output></label><input id="speed" type="range" min="0.25" max="4" step="0.25" value="1"></div>
+<div class="btns"><button class="primary" id="play">▶ Avvia</button><button id="reset">↺ Ricomincia</button></div>
+<p class="note">Modificando i parametri, la simulazione riparte da t = 0. Puoi anche spostarti nel tempo usando il cursore sotto la pista.</p>
+</aside><section>
+<div class="panel"><h2>Simulazione</h2><div class="legend"><span style="--c:#65c2ff">Corpo A</span><span style="--c:#ffb45f">Corpo B</span></div>
+<div class="stats"><div>Tempo: <strong id="time">0,00 s</strong></div><div>A: <strong id="posA">—</strong></div><div>B: <strong id="posB">—</strong></div></div>
+<svg id="track" class="track" viewBox="0 0 800 148" role="img" aria-label="Pista con i due corpi"></svg>
+<div class="control" style="margin-top:14px;margin-bottom:0"><label for="seek">Posizione temporale <output id="seeko">0,00 s</output></label><input id="seek" type="range" min="0" max="20" step="0.01" value="0"></div></div>
+<div class="panel"><h2>Grafici sincronizzati</h2><div class="plots"><svg id="positionPlot" class="plot" viewBox="0 0 500 330" role="img" aria-label="Grafico posizione-tempo"></svg><svg id="velocityPlot" class="plot" viewBox="0 0 500 330" role="img" aria-label="Grafico velocità-tempo"></svg></div><p class="foot">Il punto mobile rappresenta l'istante corrente. La pendenza del grafico x(t) è la velocità.</p></div>
+<div class="panel"><h2>Analisi dell'incontro</h2><p class="status" id="meeting"></p><p class="note" id="formula"></p></div>
+</section></div><p class="foot">GodSaveThePhysics · Simulatore didattico gratuito · Versione 1.1</p></main>
+<script>
+'use strict';
+const $=id=>document.getElementById(id), ids=['xA','vA','xB','vB','duration','speed'];
+let t=0,playing=false,lastFrame=null;
+const N=(v,d=2)=>Number(v).toLocaleString('it-IT',{maximumFractionDigits:d,minimumFractionDigits:d});
+const P=()=>Object.fromEntries(ids.map(id=>[id,Number($(id).value)]));
+const ns='http://www.w3.org/2000/svg';
+function node(tag,attrs={},content=''){let e=document.createElementNS(ns,tag);Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v));if(content)e.textContent=content;return e}
+function add(svg,tag,attrs={},content=''){let e=node(tag,attrs,content);svg.appendChild(e);return e}
+function line(svg,x1,y1,x2,y2,color='#30445f',width=1,dash=''){add(svg,'line',{x1,y1,x2,y2,stroke:color,'stroke-width':width,...(dash?{'stroke-dasharray':dash}:{})})}
+function text(svg,x,y,s,color='#b5c7df',size=12,anchor='middle'){add(svg,'text',{x,y,fill:color,'font-size':size,'text-anchor':anchor,'font-family':'sans-serif'},s)}
+function niceStep(range,target=6){let raw=Math.max(range/target,1e-8),power=10**Math.floor(Math.log10(raw));return [1,2,5,10].map(n=>n*power).find(v=>v>=raw)||10*power}
+function ticks(lo,hi){let step=niceStep(hi-lo),out=[];for(let k=Math.ceil(lo/step);k*step<=hi+step*1e-8;k++)out.push(k*step);return out}
+function bounds(p){let xs=[p.xA,p.xB,p.xA+p.vA*p.duration,p.xB+p.vB*p.duration],lo=Math.min(...xs),hi=Math.max(...xs),pad=Math.max(10,(hi-lo)*.1);return [lo-pad,hi+pad]}
+// I grafici statici vengono ricostruiti solo quando cambiano i parametri.
+// Durante la riproduzione aggiorniamo esclusivamente cursore e marcatori.
+let dynamic={};
+function buildPlot(id,p,type){
+ const svg=$(id);svg.replaceChildren();const L=66,R=475,T=34,B=285,W=R-L,H=B-T,d=p.duration;
+ let ya,yb,ymin,ymax,title,unit;
+ if(type==='x'){ya=u=>p.xA+p.vA*u;yb=u=>p.xB+p.vB*u;[ymin,ymax]=bounds(p);title='Posizione x(t)';unit='x (m)'}
+ else{ya=()=>p.vA;yb=()=>p.vB;ymin=Math.min(0,p.vA,p.vB)-3;ymax=Math.max(0,p.vA,p.vB)+3;title='Velocità v(t)';unit='v (m/s)'}
+ const X=u=>L+u/d*W,Y=y=>B-(y-ymin)/(ymax-ymin)*H;
+ text(svg,250,20,title,'#edf4ff',17);text(svg,17,35,unit,'#c5d5ed',12,'start');
+ for(const tick of ticks(0,d)){const x=X(tick);line(svg,x,T,x,B,'#26374d');text(svg,x,B+20,N(tick,1),'#a6bad5',11)}
+ for(const tick of ticks(ymin,ymax)){const y=Y(tick);line(svg,L,y,R,y,'#26374d');text(svg,L-9,y+4,N(tick,1),'#a6bad5',11,'end')}
+ line(svg,L,T,L,B,'#a4b6cd',1.4);line(svg,L,B,R,B,'#a4b6cd',1.4);text(svg,270,320,'t (s)');
+ for(const [f,c] of [[ya,'#65c2ff'],[yb,'#ffb45f']])line(svg,X(0),Y(f(0)),X(d),Y(f(d)),c,3);
+ const cursor=add(svg,'line',{x1:X(0),y1:T,x2:X(0),y2:B,stroke:'#e5eefc','stroke-width':1,'stroke-dasharray':'5 5'});
+ const dotA=add(svg,'circle',{cx:X(0),cy:Y(ya(0)),r:6,fill:'#65c2ff',stroke:'#0b1220','stroke-width':2});
+ const dotB=add(svg,'circle',{cx:X(0),cy:Y(yb(0)),r:6,fill:'#ffb45f',stroke:'#0b1220','stroke-width':2});
+ dynamic[id]={X,Y,ya,yb,cursor,dotA,dotB};
+}
+function buildTrack(p){
+ const svg=$('track');svg.replaceChildren();const [lo,hi]=bounds(p),X=x=>40+(x-lo)/(hi-lo)*720;
+ line(svg,40,73,760,73,'#657b97',3);
+ for(const tick of ticks(lo,hi)){const x=X(tick);line(svg,x,66,x,80,'#6b809b');text(svg,x,99,N(tick,0),'#a7bbd7',12)}
+ const markers=[];
+ for(const [c,label,y] of [['#65c2ff','A',54],['#ffb45f','B',92]]){
+  const dot=add(svg,'circle',{cx:0,cy:y,r:11,fill:c,stroke:'#0b1220','stroke-width':2});
+  const caption=add(svg,'text',{x:0,y:y-18,fill:c,'font-size':15,'text-anchor':'middle','font-family':'sans-serif'},label);
+  markers.push({dot,caption});
+ }
+ text(svg,400,130,'Posizione (m)','#c5d5ed',12);
+ dynamic.track={X,markers};
+}
+function rebuildStatic(){const p=P();buildTrack(p);buildPlot('positionPlot',p,'x');buildPlot('velocityPlot',p,'v');meeting(p)}
+function updateDynamic(){
+ const p=P();$('time').textContent=N(t)+' s';$('posA').textContent=N(p.xA+p.vA*t)+' m';$('posB').textContent=N(p.xB+p.vB*t)+' m';
+ $('seek').max=p.duration;$('seek').value=t;$('seeko').textContent=N(t)+' s';
+ const tr=dynamic.track;
+ [p.xA+p.vA*t,p.xB+p.vB*t].forEach((x,i)=>{const px=tr.X(x);tr.markers[i].dot.setAttribute('cx',px);tr.markers[i].caption.setAttribute('x',px)});
+ for(const id of ['positionPlot','velocityPlot']){
+  const q=dynamic[id],x=q.X(t);q.cursor.setAttribute('x1',x);q.cursor.setAttribute('x2',x);
+  for(const [dot,f] of [[q.dotA,q.ya],[q.dotB,q.yb]]){dot.setAttribute('cx',x);dot.setAttribute('cy',q.Y(f(t)))}
+ }
+ $('play').textContent=playing?'⏸ Pausa':t>0&&t<p.duration?'▶ Riprendi':'▶ Avvia';
+}
+function meeting(p){let dv=p.vA-p.vB,dx=p.xB-p.xA,m=$('meeting'),f=$('formula');if(Math.abs(dv)<1e-10){m.textContent=Math.abs(dx)<1e-10?'I corpi coincidono in ogni istante.':'I corpi non si incontrano mai.';f.textContent='Le velocità sono uguali: la distanza relativa resta costante.';return}let tm=dx/dv,xm=p.xA+p.vA*tm;if(tm<0){m.textContent='Nessun incontro futuro.';f.textContent=`Le rette si intersecano a t = ${N(tm)} s, cioè prima dell’inizio dell’esperimento.`}else{m.textContent=`Incontro a t = ${N(tm)} s, x = ${N(xm)} m${tm>p.duration?' (fuori dalla durata scelta)':''}.`;f.textContent=`xA₀ + vA·t = xB₀ + vB·t  ⇒  t = (xB₀ − xA₀)/(vA − vB) = ${N(tm)} s.`}}
+function outputs(){let p=P();for(let id of ids){let unit=id.startsWith('x')?' m':id.startsWith('v')?' m/s':id==='duration'?' s':'×';$(id+'o').textContent=N(p[id],id==='speed'?2:0)+unit}}
+function reset(){playing=false;lastFrame=null;t=0;updateDynamic()}
+for(let id of ids){$(id).addEventListener('input',()=>{outputs();if(id==='speed'){updateDynamic()}else{reset();rebuildStatic();updateDynamic()}})}
+$('play').addEventListener('click',()=>{if(playing){playing=false;}else{if(t>=P().duration)t=0;playing=true;}lastFrame=null;updateDynamic()});$('reset').addEventListener('click',reset);$('seek').addEventListener('input',()=>{playing=false;lastFrame=null;t=Number($('seek').value);updateDynamic()});
+let lastDraw=0;function animate(stamp){if(playing){if(lastFrame!==null)t+=Math.min((stamp-lastFrame)/1000,.1)*P().speed;lastFrame=stamp;if(t>=P().duration){t=P().duration;playing=false;lastFrame=null}if(stamp-lastDraw>=33||!playing){updateDynamic();lastDraw=stamp}}requestAnimationFrame(animate)}
+outputs();rebuildStatic();updateDynamic();requestAnimationFrame(animate);
+</script></body></html>
